@@ -177,6 +177,7 @@ export default function TypewriterApp() {
     characters: 0,
     errors: 0,
     startTime: null,
+    endTime: null,
     totalKeystrokes: 0,
     correctKeystrokes: 0
   });
@@ -232,6 +233,7 @@ export default function TypewriterApp() {
       characters: 0,
       errors: 0,
       startTime: null,
+      endTime: null,
       totalKeystrokes: 0,
       correctKeystrokes: 0
     });
@@ -242,6 +244,9 @@ export default function TypewriterApp() {
     if (appState === 'typing' && mode === 'challenge' && currentQuote && challengeText === currentQuote.text) {
       setCelebrationActive(true);
       audioRef.current.playSuccess();
+
+      const finishTime = Date.now();
+      setStats(prev => ({ ...prev, endTime: finishTime }));
 
       setTimeout(() => {
         setAppState('results');
@@ -353,7 +358,8 @@ export default function TypewriterApp() {
 
   const formatTime = (ms) => {
     if (!ms) return '0:00';
-    const seconds = Math.floor((Date.now() - ms) / 1000);
+    const referenceTime = stats.endTime || Date.now();
+    const seconds = Math.floor((referenceTime - ms) / 1000);
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
