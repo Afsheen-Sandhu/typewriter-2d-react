@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import html2canvas from 'html2canvas';
 
 // ==================== CHALLENGE QUOTES ====================
 const CHALLENGE_QUOTES = [
@@ -163,6 +164,12 @@ export default function TypewriterApp() {
   const [pressedKeys, setPressedKeys] = useState(new Set());
   const [cursorVisible, setCursorVisible] = useState(true);
   const [mistakes, setMistakes] = useState([]);
+
+  // Save/Export States
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportFont, setExportFont] = useState('special-elite'); // 'special-elite', 'caveat', 'dancing-script'
+  const [isExporting, setIsExporting] = useState(false);
+  const exportRef = useRef(null);
 
   const [stats, setStats] = useState({
     wpm: 0,
@@ -380,6 +387,31 @@ export default function TypewriterApp() {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportImage = async () => {
+    if (!exportRef.current) return;
+    setIsExporting(true);
+    // Brief delay to ensure ref is rendered if it was just opened (though it should be already if modal is open)
+    setTimeout(async () => {
+      try {
+        const canvas = await html2canvas(exportRef.current, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#fcf5e5',
+          logging: false
+        });
+        const link = document.createElement('a');
+        link.download = `typewriter-draft-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        setIsExportModalOpen(false);
+      } catch (err) {
+        console.error('Export failed', err);
+      } finally {
+        setIsExporting(false);
+      }
+    }, 100);
+  };
+
   const renderFreeText = () => {
     const lines = text.split('\n');
     return lines.map((line, lineIdx) => {
@@ -395,8 +427,16 @@ export default function TypewriterApp() {
               {char}
             </span>
           ))}
-          {isLastLine && cursorVisible && (
-            <span style={{ display: 'inline-block', width: '3px', height: '24px', background: '#1a1a1a', marginLeft: '1px', verticalAlign: 'text-bottom' }} />
+          {isLastLine && (
+            <span style={{
+              display: 'inline-block',
+              width: '3px',
+              height: '24px',
+              background: '#1a1a1a',
+              marginLeft: '1px',
+              verticalAlign: 'text-bottom',
+              opacity: cursorVisible ? 1 : 0
+            }} />
           )}
         </div>
       );
@@ -444,8 +484,16 @@ export default function TypewriterApp() {
               {char}
             </span>
           ))}
-          {cursorVisible && challengeText.length < currentQuote.text.length && (
-            <span style={{ display: 'inline-block', width: '3px', height: '24px', background: '#1a1a1a', marginLeft: '1px', verticalAlign: 'text-bottom' }} />
+          {challengeText.length < currentQuote.text.length && (
+            <span style={{
+              display: 'inline-block',
+              width: '3px',
+              height: '24px',
+              background: '#1a1a1a',
+              marginLeft: '1px',
+              verticalAlign: 'text-bottom',
+              opacity: cursorVisible ? 1 : 0
+            }} />
           )}
         </div>
 
@@ -481,13 +529,17 @@ export default function TypewriterApp() {
       overflow: 'hidden'
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Special+Elite&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Special+Elite&family=Caveat:wght@400;700&family=Dancing+Script:wght@400;700&display=swap');
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
         @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
         .glass-panel { background: rgba(255, 255, 255, 0.25); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.1); }
         .typewriter-key { transition: all 0.08s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; user-select: none; }
         .typewriter-key:active { transform: translateY(2px); }
+        .parchment-texture {
+          background-color: #fcf5e5;
+          background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
+        }
       `}</style>
 
       <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 400 400\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\' opacity=\'0.03\'/%3E%3C/svg%3E")', opacity: 0.4, pointerEvents: 'none', zIndex: 0 }} />
@@ -541,10 +593,22 @@ export default function TypewriterApp() {
         <div style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
           {/* STATS NAVBAR AT TOP */}
           <div style={{ height: '70px', width: '100%', background: 'rgba(42, 37, 32, 0.95)', borderBottom: '2px solid #c9b896', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 50px', backdropFilter: 'blur(10px)', color: '#fff', boxSizing: 'border-box' }}>
-            <div style={{ display: 'flex', gap: '60px', fontFamily: '"Crimson Text", serif', fontSize: '20px' }}>
-              <div style={{ width: '100px' }}>WPM: <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: '24px' }}>{stats.wpm}</span></div>
-              <div style={{ width: '140px' }}>Accuracy: <span style={{ color: stats.accuracy > 90 ? '#28a745' : '#ffc107', fontWeight: 'bold', fontSize: '24px' }}>{stats.accuracy}%</span></div>
-              <div style={{ width: '120px' }}>Time: <span style={{ color: '#fff', fontWeight: 'bold' }}>{formatTime(stats.startTime)}</span></div>
+            <div style={{ display: 'flex', gap: '30px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '60px', fontFamily: '"Crimson Text", serif', fontSize: '20px', fontVariantNumeric: 'tabular-nums' }}>
+                <div style={{ width: '100px' }}>WPM: <span style={{ color: '#ffd700', fontWeight: 'bold', fontSize: '24px' }}>{stats.wpm}</span></div>
+                <div style={{ width: '140px' }}>Accuracy: <span style={{ color: stats.accuracy > 90 ? '#28a745' : '#ffc107', fontWeight: 'bold', fontSize: '24px' }}>{stats.accuracy}%</span></div>
+                <div style={{ width: '120px' }}>Time: <span style={{ color: '#fff', fontWeight: 'bold' }}>{formatTime(stats.startTime)}</span></div>
+              </div>
+              {mode === 'free' && (
+                <button
+                  onClick={() => setIsExportModalOpen(true)}
+                  style={{ background: 'linear-gradient(135deg, #c9b896 0%, #a89876 100%)', border: 'none', color: '#1a1a1a', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}
+                  onMouseEnter={e => e.target.style.transform = 'translateY(-2px)'}
+                  onMouseLeave={e => e.target.style.transform = 'translateY(0)'}
+                >
+                  Save Draft
+                </button>
+              )}
             </div>
             <button onClick={() => setAppState('menu')} style={{ background: 'transparent', border: '1px solid #c9b896', color: '#c9b896', padding: '10px 24px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s' }} onMouseEnter={e => e.target.style.background = 'rgba(201, 184, 150, 0.1)'} onMouseLeave={e => e.target.style.background = 'transparent'}>
               Abandon Draft
@@ -621,6 +685,81 @@ export default function TypewriterApp() {
             <div style={{ display: 'flex', gap: '20px' }}>
               <button onClick={startSession} style={{ flex: 1, padding: '18px', background: 'linear-gradient(135deg, #c9b896 0%, #a89876 100%)', color: '#1a1a1a', border: 'none', borderRadius: '12px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>New Draft</button>
               <button onClick={() => setAppState('menu')} style={{ flex: 1, padding: '18px', background: 'rgba(0,0,0,0.05)', color: '#3d2f1f', border: '2px solid #8b7856', borderRadius: '12px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>Return to Library</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* --- EXPORT MODAL --- */}
+      {isExportModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn 0.3s ease' }}>
+          <div className="glass-panel" style={{ width: '90%', maxWidth: '900px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', padding: '40px', boxSizing: 'border-box', gap: '30px', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontFamily: '"Playfair Display", serif', fontSize: '32px', color: '#1a1a1a', margin: 0 }}>Save Your Manuscript</h2>
+              <button
+                onClick={() => setIsExportModalOpen(false)}
+                style={{ background: 'transparent', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#666' }}
+              >✕</button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '30px', flex: 1, minHeight: 0 }}>
+              {/* Settings */}
+              <div style={{ width: '250px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', color: '#8b7856', marginBottom: '10px', textTransform: 'uppercase' }}>Typography</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {[
+                      { id: 'special-elite', label: 'Vintage Typewriter', font: '"Special Elite", monospace' },
+                      { id: 'caveat', label: 'Casual Hand', font: '"Caveat", cursive' },
+                      { id: 'dancing-script', label: 'Classic Script', font: '"Dancing Script", cursive' }
+                    ].map(f => (
+                      <button
+                        key={f.id}
+                        onClick={() => setExportFont(f.id)}
+                        style={{ padding: '12px', background: exportFont === f.id ? '#c9b896' : 'rgba(0,0,0,0.05)', border: '1px solid #c9b896', borderRadius: '8px', textAlign: 'left', cursor: 'pointer', fontFamily: f.font, fontSize: '16px', transition: 'all 0.2s' }}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 'auto' }}>
+                  <button
+                    onClick={handleExportImage}
+                    disabled={isExporting}
+                    style={{ width: '100%', padding: '16px', background: '#3d2f1f', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', opacity: isExporting ? 0.7 : 1 }}
+                  >
+                    {isExporting ? 'Creating...' : 'Download Page'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Preview */}
+              <div style={{ flex: 1, background: '#eee', borderRadius: '12px', padding: '20px', overflowY: 'auto', display: 'flex', justifyContent: 'center' }}>
+                <div
+                  ref={exportRef}
+                  className="parchment-texture"
+                  style={{
+                    width: '100%',
+                    aspectRatio: '1 / 1.4',
+                    maxWidth: '500px',
+                    padding: '50px',
+                    boxSizing: 'border-box',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+                    fontFamily: exportFont === 'special-elite' ? '"Special Elite", monospace' : exportFont === 'caveat' ? '"Caveat", cursive' : '"Dancing Script", cursive',
+                    fontSize: '20px',
+                    lineHeight: '1.6',
+                    color: '#1a1a1a',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
+                  }}
+                >
+                  <div style={{ position: 'relative', height: '100%' }}>
+                    <div style={{ position: 'absolute', top: 0, left: '-20px', bottom: 0, width: '1px', background: 'rgba(220, 100, 100, 0.1)' }} />
+                    {text || 'A blank page awaiting your story...'}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
